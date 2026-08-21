@@ -9,6 +9,14 @@ on:
         branches:
             - main
 
+permissions:
+  contents: read
+  id-token: write
+
+env: 
+  AWS_REGION: eu-north-1
+  ECR_REPOSITORY: devops-fastapi
+
 jobs:
     test:
         runs-on: ubuntu-latest
@@ -30,3 +38,35 @@ jobs:
         - name: Run tests
           run: | 
             python -m pytest
+
+    build-and-push:
+      needs: test
+      runs-on: ubuntu-latest
+
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+
+        - name: Configure AWS credentials
+          uses: aws-actions/configure-aws-credentials@v6
+          with:
+            role-to-assume: arn:aws:iam::648004701184:role/github-actions-devops-fastapi   
+            aws-region: eu-north-1
+
+        - name: verify AWS identity
+          run: | 
+            aws sts get-caller-identity
+
+        - name: Login to Amazon ECR
+          id: login-ecr 
+          uses: aws-actions/amazon-ecr-login@v2
+
+        - name: Build Docker image
+          run: |
+            docker build \
+              -t ${{ steps.login-ecr.outputs.registry }}/devops-fastapi:${{ github.sha }} .
+        
+        - name: Push Docker image
+          run: |
+            docker push \
+              ${{ steps.login-ecr.outputs.registry }}/devops-fastapi:${{ github.sha }}
