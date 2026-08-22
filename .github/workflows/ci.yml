@@ -16,6 +16,7 @@ permissions:
 env: 
   AWS_REGION: eu-north-1
   ECR_REPOSITORY: devops-fastapi
+  EC2_INSTANCE_ID: i-0a4abf88552c9d82b
 
 jobs:
     test:
@@ -70,3 +71,27 @@ jobs:
           run: |
             docker push \
               ${{ steps.login-ecr.outputs.registry }}/devops-fastapi:${{ github.sha }}
+    
+    deploy:
+      needs: build-and-push
+      runs-on: ubuntu-latest
+
+      steps:
+        - name: Configure AWS credentials
+          uses: aws-actions/configure-aws-credentials@v6
+          with: 
+            role-to-assume: arn:aws:iam::648004701184:role/github-actions-devops-fastapi
+            aws-region: eu-north-1
+
+        - name: Deploy to EC2
+          run: |
+            aws ssm send-command \
+            --instance-ids "${{ env.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \ 
+            --parameters 'commands=[
+              "aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 648004701184.dkr.ecr.eu-north-1.amazonaws.com",
+              "docker pull 648004701184.dkr.ecr.eu-north-1.amazonaws.com/devops-fastapi:${{ github.sha }}",
+              "docker stop fastapi-container || true",
+              "docker rm fastapi-container || true",
+              "docker run -d --restart unless-stopped -p 8000:8000 --name fastapi-container 648004701184.dkr.ecr.eu-north-1.amazonaws.com/devops-fastapi:${{ github.sha }}"
+            ]'
