@@ -87,7 +87,7 @@ jobs:
           run: |
             aws ssm send-command \
             --instance-ids "${{ env.EC2_INSTANCE_ID }}" \
-            --document-name "AWS-RunShellScript" \ 
+            --document-name "AWS-RunShellScript" \
             --parameters 'commands=[
               "aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 648004701184.dkr.ecr.eu-north-1.amazonaws.com",
               "docker pull 648004701184.dkr.ecr.eu-north-1.amazonaws.com/devops-fastapi:${{ github.sha }}",
